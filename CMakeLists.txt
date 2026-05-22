@@ -17,7 +17,11 @@ FetchContent_Declare(
 )
 FetchContent_MakeAvailable(crow)
 
-add_executable(webrtc_server server/main.cpp)
+add_executable(webrtc_server 
+    server/main.cpp
+    server/config.hpp
+    server/room_manager.hpp
+)
 
 # Define standalone ASIO and CROW_USE_ASIO flags
 target_compile_definitions(webrtc_server PRIVATE CROW_USE_ASIO=1 ASIO_STANDALONE=1)
