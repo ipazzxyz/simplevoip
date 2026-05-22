@@ -284,10 +284,33 @@
             window.location.href = `/${roomId}`;
         });
 
+        // Extract room ID from possible URL or plain text
+        function extractRoomId(input) {
+            input = input.trim();
+            if (!input) return '';
+            
+            try {
+                const url = new URL(input);
+                const path = url.pathname.replace(/^\/+|\/+$/g, '');
+                const segment = path.split('/')[0];
+                return segment ? segment.split('?')[0].split('#')[0] : '';
+            } catch (e) {
+                if (input.includes('/')) {
+                    const parts = input.split('/');
+                    for (let i = parts.length - 1; i >= 0; i--) {
+                        const segment = parts[i].split('?')[0].split('#')[0].trim();
+                        if (segment) return segment;
+                    }
+                }
+                return input.split('?')[0].split('#')[0].trim();
+            }
+        }
+
         // Event listener for joining an existing room
         document.getElementById('joinForm').addEventListener('submit', (e) => {
             e.preventDefault();
-            const roomId = document.getElementById('roomIdInput').value.trim();
+            const inputVal = document.getElementById('roomIdInput').value;
+            const roomId = extractRoomId(inputVal);
             if (roomId) {
                 // Redirect user to the room URL
                 window.location.href = `/${roomId}`;

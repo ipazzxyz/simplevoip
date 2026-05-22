@@ -61,6 +61,12 @@ body {
     z-index: 10;
 }
 
+.logo-link {
+    text-decoration: none;
+    color: inherit;
+    cursor: pointer;
+}
+
 .logo {
     display: flex;
     align-items: center;
@@ -95,6 +101,88 @@ body {
     padding: 6px 16px;
     border-radius: 20px;
     border: 1px solid rgba(255, 255, 255, 0.05);
+}
+
+/* Room Badge */
+.room-badge {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    background: rgba(255, 255, 255, 0.03);
+    border: 1px solid var(--glass-border);
+    padding: 6px 16px;
+    border-radius: 20px;
+    cursor: pointer;
+    transition: all 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+    user-select: none;
+    position: relative;
+}
+
+.room-badge:hover {
+    background: rgba(0, 210, 255, 0.08);
+    border-color: rgba(0, 210, 255, 0.3);
+    box-shadow: 0 0 15px rgba(0, 210, 255, 0.15);
+    transform: translateY(-1px);
+}
+
+.room-badge:active {
+    transform: translateY(1px);
+}
+
+.room-label {
+    font-size: 0.85rem;
+    color: var(--text-secondary);
+    font-weight: 500;
+}
+
+.room-id {
+    font-size: 0.9rem;
+    font-weight: 600;
+    color: var(--accent-blue);
+    letter-spacing: 0.5px;
+}
+
+.copy-icon {
+    color: var(--text-secondary);
+    transition: color 0.3s ease;
+}
+
+.room-badge:hover .copy-icon {
+    color: var(--accent-blue);
+}
+
+/* Tooltip for copy notification */
+.room-badge::after {
+    content: 'Copy Room Link';
+    position: absolute;
+    bottom: -35px;
+    left: 50%;
+    transform: translateX(-50%) translateY(10px);
+    background: rgba(10, 11, 16, 0.9);
+    border: 1px solid var(--glass-border);
+    color: var(--text-primary);
+    padding: 4px 10px;
+    border-radius: 6px;
+    font-size: 0.75rem;
+    white-space: nowrap;
+    opacity: 0;
+    pointer-events: none;
+    transition: all 0.2s ease;
+    z-index: 100;
+}
+
+.room-badge:hover::after {
+    opacity: 1;
+    transform: translateX(-50%) translateY(0);
+}
+
+/* When successfully copied */
+.room-badge.copied::after {
+    content: 'Copied!';
+    background: var(--accent-green);
+    border-color: var(--accent-green);
+    color: #000000;
+    font-weight: 600;
 }
 
 .status-dot {
@@ -459,6 +547,19 @@ body {
     
     .logo-text {
         font-size: 1.1rem;
+    }
+    
+    .room-badge {
+        padding: 4px 10px;
+        gap: 4px;
+    }
+    
+    .room-label {
+        display: none;
+    }
+    
+    .room-id {
+        font-size: 0.8rem;
     }
     
     /* Full-screen workspace */

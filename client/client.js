@@ -11,6 +11,8 @@ const remotePlaceholder = document.getElementById('remotePlaceholder');
 const remotePlaceholderText = document.getElementById('remotePlaceholderText');
 const remoteSpinner = document.getElementById('remoteSpinner');
 const remoteUserIcon = document.getElementById('remoteUserIcon');
+const roomBadge = document.getElementById('roomBadge');
+const roomText = document.getElementById('roomText');
 
 // WebRTC & WS state
 let localStream = null;
@@ -30,6 +32,12 @@ const rtcConfig = {
     ]
 };
 
+// Set Room ID in header
+const room = window.location.pathname.substring(1);
+if (roomText) {
+    roomText.textContent = room;
+}
+
 // Event Listeners
 joinBtn.addEventListener('click', () => {
     if (!isConnected) {
@@ -38,6 +46,20 @@ joinBtn.addEventListener('click', () => {
         endCall();
     }
 });
+
+if (roomBadge) {
+    roomBadge.addEventListener('click', () => {
+        const roomUrl = window.location.href;
+        navigator.clipboard.writeText(roomUrl).then(() => {
+            roomBadge.classList.add('copied');
+            setTimeout(() => {
+                roomBadge.classList.remove('copied');
+            }, 1500);
+        }).catch(err => {
+            console.error('Failed to copy room link:', err);
+        });
+    });
+}
 
 muteAudioBtn.addEventListener('click', toggleAudio);
 muteVideoBtn.addEventListener('click', toggleVideo);
@@ -105,19 +127,24 @@ async function startCall() {
 
     localVideo.srcObject = localStream;
     
+    // Disable camera by default
     if (hasVideo) {
-        localVideo.classList.add('active');
-        localPlaceholder.classList.add('hidden');
-    } else {
-        localVideo.classList.remove('active');
-        localPlaceholder.classList.remove('hidden');
+        localStream.getVideoTracks()[0].enabled = false;
     }
+    
+    localVideo.classList.remove('active');
+    localPlaceholder.classList.remove('hidden');
     
     // Enable controls only for active tracks
     muteAudioBtn.disabled = !hasAudio;
     muteVideoBtn.disabled = !hasVideo;
     muteAudioBtn.classList.remove('muted');
-    muteVideoBtn.classList.remove('muted');
+    
+    if (hasVideo) {
+        muteVideoBtn.classList.add('muted');
+    } else {
+        muteVideoBtn.classList.remove('muted');
+    }
 
     updateStatus('Connecting to server...', 'connecting');
     
