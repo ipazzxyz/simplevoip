@@ -471,6 +471,18 @@ body {
     transform: translateY(-2px);
 }
 
+.secondary-btn.sharing {
+    background: var(--accent-blue);
+    border-color: var(--accent-blue);
+    box-shadow: 0 0 12px rgba(0, 210, 255, 0.4);
+}
+
+.secondary-btn.sharing:hover:not(:disabled) {
+    background: #33dbff;
+    border-color: #33dbff;
+    box-shadow: 0 0 18px rgba(0, 210, 255, 0.6);
+    transform: translateY(-2px);
+}
 
 .secondary-btn:disabled {
     opacity: 0.3;

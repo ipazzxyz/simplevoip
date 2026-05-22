@@ -4,6 +4,7 @@ const deafenBtn = document.getElementById('deafenBtn');
 const muteAudioBtn = document.getElementById('muteAudio');
 const muteVideoBtn = document.getElementById('muteVideo');
 const switchCameraBtn = document.getElementById('switchCamera');
+const shareScreenBtn = document.getElementById('shareScreenBtn');
 const statusDot = document.getElementById('statusDot');
 const statusText = document.getElementById('statusText');
 const localPlaceholder = document.getElementById('localPlaceholder');
@@ -12,6 +13,9 @@ const roomText = document.getElementById('roomText');
 
 // WebRTC & WS state
 let localStream = null;
+let screenStream = null;
+let isScreenSharing = false;
+let originalVideoTrack = null;
 const peers = {}; // peerId -> { peerConnection, remoteStream, wrapperElement, iceQueue, remoteDescriptionSet }
 let myPeerId = null;
 let currentHostId = null;
@@ -59,6 +63,9 @@ muteAudioBtn.addEventListener('click', toggleAudio);
 muteVideoBtn.addEventListener('click', toggleVideo);
 if (switchCameraBtn) {
     switchCameraBtn.addEventListener('click', switchCamera);
+}
+if (shareScreenBtn) {
+    shareScreenBtn.addEventListener('click', toggleScreenShare);
 }
 
 // Initialize AudioContext on first user interaction to satisfy autoplay policies
@@ -127,8 +134,28 @@ async function startCall() {
         }
     }
 
-    const hasVideo = localStream.getVideoTracks().length > 0;
+    let hasRealVideo = localStream.getVideoTracks().length > 0;
     const hasAudio = localStream.getAudioTracks().length > 0;
+
+    if (!hasRealVideo) {
+        try {
+            const canvas = document.createElement('canvas');
+            canvas.width = 320;
+            canvas.height = 240;
+            const ctx = canvas.getContext('2d');
+            ctx.fillStyle = 'black';
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+            const dummyStream = canvas.captureStream(1);
+            const dummyTrack = dummyStream.getVideoTracks()[0];
+            dummyTrack.enabled = false;
+            localStream.addTrack(dummyTrack);
+            console.log("Added dummy video track to localStream for screen share compatibility.");
+        } catch (e) {
+            console.error("Failed to create dummy video track:", e);
+        }
+    }
+
+    const hasVideo = localStream.getVideoTracks().length > 0;
 
     localVideo.srcObject = localStream;
     
@@ -143,19 +170,22 @@ async function startCall() {
     
     // Enable controls only for active tracks
     muteAudioBtn.disabled = !hasAudio;
-    muteVideoBtn.disabled = !hasVideo;
+    muteVideoBtn.disabled = !hasRealVideo;
+    if (shareScreenBtn) {
+        shareScreenBtn.disabled = false;
+    }
     deafenBtn.disabled = false;
     muteAudioBtn.classList.remove('muted');
     deafenBtn.classList.remove('muted');
     
-    if (hasVideo) {
+    if (hasRealVideo) {
         muteVideoBtn.classList.add('muted');
     } else {
         muteVideoBtn.classList.remove('muted');
     }
 
     if (switchCameraBtn) {
-        switchCameraBtn.disabled = !hasVideo;
+        switchCameraBtn.disabled = !hasRealVideo;
     }
 
     await updateVideoDevices();
@@ -722,6 +752,10 @@ function endCall() {
     
     isConnected = false;
 
+    if (isScreenSharing) {
+        stopScreenShare();
+    }
+
     // Release local media
     if (localStream) {
         localStream.getTracks().forEach(track => track.stop());
@@ -739,6 +773,11 @@ function endCall() {
 
     muteAudioBtn.disabled = true;
     muteVideoBtn.disabled = true;
+    if (shareScreenBtn) {
+        shareScreenBtn.disabled = true;
+        shareScreenBtn.classList.remove('sharing');
+        shareScreenBtn.title = 'Share Screen';
+    }
     deafenBtn.disabled = true;
     if (switchCameraBtn) {
         switchCameraBtn.disabled = true;
@@ -889,6 +928,10 @@ async function updateVideoDevices() {
 // Toggle visibility of the Switch Camera button
 function updateSwitchCameraButtonVisibility() {
     if (!switchCameraBtn) return;
+    if (isScreenSharing) {
+        switchCameraBtn.classList.add('hidden');
+        return;
+    }
     const videoTrack = localStream ? localStream.getVideoTracks()[0] : null;
     const isCameraEnabled = videoTrack && videoTrack.enabled;
     
@@ -976,8 +1019,13 @@ function updateLocalPlaceholderText() {
         return;
     }
 
-    const hasVideo = localStream.getVideoTracks().length > 0;
-    if (!hasVideo) {
+    if (isScreenSharing) {
+        placeholderText.textContent = '';
+        return;
+    }
+
+    const hasRealVideo = videoDevices.length > 0;
+    if (!hasRealVideo) {
         placeholderText.textContent = 'Audio-only';
     } else {
         const videoTrack = localStream.getVideoTracks()[0];
@@ -998,4 +1046,147 @@ function broadcastLocalState() {
         micMuted: isMicMuted,
         deafened: isDeafened
     });
+}
+
+// Toggle Screen Sharing State
+async function toggleScreenShare() {
+    if (isScreenSharing) {
+        stopScreenShare();
+    } else {
+        await startScreenShare();
+    }
+}
+
+// Start screen sharing
+async function startScreenShare() {
+    if (!navigator.mediaDevices || !navigator.mediaDevices.getDisplayMedia) {
+        alert('Screen sharing is not supported by your browser.');
+        return;
+    }
+
+    try {
+        screenStream = await navigator.mediaDevices.getDisplayMedia({ video: true });
+        const screenTrack = screenStream.getVideoTracks()[0];
+
+        // Track when screen sharing ends via browser UI
+        screenTrack.onended = () => {
+            console.log('Screen sharing ended via browser UI');
+            stopScreenShare();
+        };
+
+        isScreenSharing = true;
+        if (shareScreenBtn) {
+            shareScreenBtn.classList.add('sharing');
+            shareScreenBtn.title = 'Stop Screen Share';
+        }
+
+        // Keep track of the original video track in localStream
+        const localVideoTracks = localStream.getVideoTracks();
+        if (localVideoTracks.length > 0) {
+            originalVideoTrack = localVideoTracks[0];
+            // Remove the webcam/dummy track from localStream
+            localStream.removeTrack(originalVideoTrack);
+        }
+
+        // Add screenTrack to localStream
+        localStream.addTrack(screenTrack);
+
+        // Update local video element
+        localVideo.srcObject = localStream;
+        localVideo.classList.add('active');
+        localPlaceholder.classList.add('hidden');
+        updateLocalPlaceholderText();
+
+        // Update other controls visibility/states
+        updateSwitchCameraButtonVisibility();
+        muteVideoBtn.disabled = true;
+
+        // Replace track for all peer connections
+        Object.keys(peers).forEach(peerId => {
+            const pc = peers[peerId].peerConnection;
+            if (pc) {
+                const videoSender = pc.getSenders().find(s => s.track && s.track.kind === 'video');
+                if (videoSender) {
+                    videoSender.replaceTrack(screenTrack).then(() => {
+                        console.log(`Replaced video track with screen track for peer: ${peerId}`);
+                    }).catch(err => {
+                        console.error(`Error replacing track for peer ${peerId}:`, err);
+                    });
+                }
+            }
+        });
+
+    } catch (err) {
+        console.error('Error starting screen share:', err);
+        isScreenSharing = false;
+        if (shareScreenBtn) {
+            shareScreenBtn.classList.remove('sharing');
+            shareScreenBtn.title = 'Share Screen';
+        }
+    }
+}
+
+// Stop screen sharing
+function stopScreenShare() {
+    if (!isScreenSharing) return;
+
+    isScreenSharing = false;
+    if (shareScreenBtn) {
+        shareScreenBtn.classList.remove('sharing');
+        shareScreenBtn.title = 'Share Screen';
+    }
+
+    // Stop screen share stream tracks
+    if (screenStream) {
+        screenStream.getTracks().forEach(track => track.stop());
+        screenStream = null;
+    }
+
+    // Remove screen track from localStream
+    const localVideoTracks = localStream.getVideoTracks();
+    localVideoTracks.forEach(track => {
+        if (track !== originalVideoTrack) {
+            localStream.removeTrack(track);
+            track.stop();
+        }
+    });
+
+    // Restore original video track
+    if (originalVideoTrack) {
+        localStream.addTrack(originalVideoTrack);
+
+        if (originalVideoTrack.enabled) {
+            localVideo.classList.add('active');
+            localPlaceholder.classList.add('hidden');
+        } else {
+            localVideo.classList.remove('active');
+            localPlaceholder.classList.remove('hidden');
+        }
+
+        // Replace track back for all peer connections
+        Object.keys(peers).forEach(peerId => {
+            const pc = peers[peerId].peerConnection;
+            if (pc) {
+                const videoSender = pc.getSenders().find(s => s.track && s.track.kind === 'video');
+                if (videoSender) {
+                    videoSender.replaceTrack(originalVideoTrack).then(() => {
+                        console.log(`Restored webcam track for peer: ${peerId}`);
+                    }).catch(err => {
+                        console.error(`Error restoring track for peer ${peerId}:`, err);
+                    });
+                }
+            }
+        });
+    } else {
+        localVideo.classList.remove('active');
+        localPlaceholder.classList.remove('hidden');
+    }
+
+    // Restore controls states
+    const hasRealVideo = videoDevices.length > 0;
+    muteVideoBtn.disabled = !hasRealVideo;
+
+    updateLocalPlaceholderText();
+    updateSwitchCameraButtonVisibility();
+    originalVideoTrack = null;
 }
