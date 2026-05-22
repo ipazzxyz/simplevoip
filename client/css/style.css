@@ -10,7 +10,7 @@
     --text-secondary: #8e92a2;
     --glass-bg: rgba(18, 19, 26, 0.65);
     --glass-border: rgba(255, 255, 255, 0.08);
-    --shadow-glow: 0 8px 32px 0 rgba(0, 210, 255, 0.15);
+    --shadow-glow: 0 4px 20px rgba(0, 0, 0, 0.4);
 }
 
 /* Global Reset */
@@ -232,27 +232,33 @@ body {
     height: 100%;
     display: flex;
     gap: 20px;
+    padding: 4px;
 }
 
 /* Video Wrapper */
 .video-wrapper {
     position: relative;
-    background: var(--bg-secondary);
-    border-radius: 20px;
-    border: 1px solid var(--glass-border);
+    background: linear-gradient(145deg, #13141c, #0a0a0f);
+    border-radius: 8px;
+    border: 1px solid rgba(255, 255, 255, 0.04);
     overflow: hidden;
     box-shadow: var(--shadow-glow);
     display: flex;
     justify-content: center;
     align-items: center;
-    transition: all 0.5s cubic-bezier(0.16, 1, 0.3, 1);
+    transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.video-wrapper.speaking {
+    border-color: var(--accent-green) !important;
+    box-shadow: 0 0 20px rgba(0, 245, 212, 0.25), 0 4px 20px rgba(0, 0, 0, 0.4) !important;
 }
 
 .video-wrapper video {
     width: 100%;
     height: 100%;
     object-fit: contain;
-    border-radius: 19px;
+    border-radius: 8px;
     opacity: 0;
     transition: opacity 0.5s ease;
 }
@@ -281,7 +287,7 @@ body {
     height: 160px;
     z-index: 5;
     background: rgba(18, 19, 26, 0.9);
-    border: 1px solid rgba(255, 255, 255, 0.15);
+    border: 1px solid rgba(255, 255, 255, 0.06);
     box-shadow: 0 10px 40px rgba(0, 0, 0, 0.5);
     animation: fadeInLocal 0.8s ease;
 }
@@ -313,6 +319,12 @@ body {
     fill: #ffd700;
     color: #ffd700;
     filter: drop-shadow(0 0 3px rgba(255, 215, 0, 0.6));
+    flex-shrink: 0;
+}
+
+.status-icon {
+    width: 14px;
+    height: 14px;
     flex-shrink: 0;
 }
 
@@ -351,9 +363,18 @@ body {
     filter: drop-shadow(0 0 12px rgba(0, 0, 0, 0.3));
 }
 
-.local-wrapper .placeholder-icon {
+.video-container:not(.grid-mode) .local-wrapper .placeholder-icon {
     width: 48px;
     height: 48px;
+}
+
+.video-container:not(.grid-mode) .local-wrapper .placeholder-icon svg {
+    width: 24px;
+    height: 24px;
+}
+
+.video-container:not(.grid-mode) .local-wrapper .placeholder-text {
+    display: none;
 }
 
 .placeholder-text {
@@ -586,6 +607,7 @@ body {
     
     .video-container {
         gap: 0;
+        padding: 0;
     }
     
     /* Edge-to-edge remote video */
@@ -601,15 +623,15 @@ body {
         height: 150px;
         bottom: calc(105px + env(safe-area-inset-bottom, 0px));
         right: 12px;
-        border-radius: 16px;
-        border: 1.5px solid rgba(255, 255, 255, 0.2);
+        border-radius: 8px;
+        border: 1px solid rgba(255, 255, 255, 0.06);
         box-shadow: 0 8px 24px rgba(0, 0, 0, 0.45);
         background: rgba(10, 11, 16, 0.85);
         z-index: 5;
     }
     
     .local-wrapper video {
-        border-radius: 14px;
+        border-radius: 8px;
     }
     
     .video-placeholder {
@@ -690,7 +712,7 @@ body {
     grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
     grid-auto-rows: 1fr;
     gap: 16px;
-    padding: 0;
+    padding: 4px;
 }
 
 /* Local wrapper in Grid Mode becomes a standard grid cell instead of absolute PiP */
@@ -700,8 +722,8 @@ body {
     right: auto;
     width: 100%;
     height: 100%;
-    border-radius: 20px;
-    border: 1px solid var(--glass-border);
+    border-radius: 8px;
+    border: 1px solid rgba(255, 255, 255, 0.04);
     box-shadow: var(--shadow-glow);
     animation: none;
 }
@@ -755,7 +777,7 @@ body {
 
 /* When waiting placeholder is active, position it correctly */
 .video-container .video-placeholder#waitingPlaceholder {
-    border-radius: 20px;
+    border-radius: 8px;
     position: absolute;
     top: 0;
     left: 0;
@@ -767,6 +789,10 @@ body {
 
 /* If waiting placeholder is hidden */
 #waitingPlaceholder.hidden {
+    display: none !important;
+}
+
+.hidden {
     display: none !important;
 }
 

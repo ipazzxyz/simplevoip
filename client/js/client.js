@@ -3,6 +3,7 @@ const localVideo = document.getElementById('localVideo');
 const deafenBtn = document.getElementById('deafenBtn');
 const muteAudioBtn = document.getElementById('muteAudio');
 const muteVideoBtn = document.getElementById('muteVideo');
+const switchCameraBtn = document.getElementById('switchCamera');
 const statusDot = document.getElementById('statusDot');
 const statusText = document.getElementById('statusText');
 const localPlaceholder = document.getElementById('localPlaceholder');
@@ -17,6 +18,11 @@ let currentHostId = null;
 let socket = null;
 let isConnected = false;
 let isDeafened = false;
+
+// Audio context & video device state
+let audioContext = null;
+let videoDevices = [];
+let currentVideoDeviceIndex = 0;
 
 const rtcConfig = {
     iceServers: [
@@ -51,6 +57,14 @@ if (roomBadge) {
 
 muteAudioBtn.addEventListener('click', toggleAudio);
 muteVideoBtn.addEventListener('click', toggleVideo);
+if (switchCameraBtn) {
+    switchCameraBtn.addEventListener('click', switchCamera);
+}
+
+// Initialize AudioContext on first user interaction to satisfy autoplay policies
+document.addEventListener('click', () => {
+    getAudioContext();
+}, { once: true });
 
 // Start call automatically on page load
 window.addEventListener('DOMContentLoaded', () => {
@@ -125,6 +139,7 @@ async function startCall() {
     
     localVideo.classList.remove('active');
     localPlaceholder.classList.remove('hidden');
+    updateLocalPlaceholderText();
     
     // Enable controls only for active tracks
     muteAudioBtn.disabled = !hasAudio;
@@ -137,6 +152,17 @@ async function startCall() {
         muteVideoBtn.classList.add('muted');
     } else {
         muteVideoBtn.classList.remove('muted');
+    }
+
+    if (switchCameraBtn) {
+        switchCameraBtn.disabled = !hasVideo;
+    }
+
+    await updateVideoDevices();
+    updateSwitchCameraButtonVisibility();
+
+    if (hasAudio) {
+        monitorSpeech(localStream, document.getElementById('localVideoWrapper'));
     }
 
     updateStatus('Connecting to server...', 'connecting');
@@ -192,7 +218,9 @@ function initPeerConnection(peerId, isInitiator) {
         remoteStream: new MediaStream(),
         wrapperElement: null,
         iceQueue: [],
-        remoteDescriptionSet: false
+        remoteDescriptionSet: false,
+        micMuted: false,
+        deafened: false
     };
     
     peers[peerId] = peerState;
@@ -250,6 +278,10 @@ function initPeerConnection(peerId, isInitiator) {
                 if (event.track.muted) {
                     handleMute();
                 }
+            }
+
+            if (event.track.kind === 'audio') {
+                monitorSpeech(remoteStream, wrapper);
             }
         }
     };
@@ -413,7 +445,7 @@ function updateHostButtons() {
     const isHost = (myPeerId && currentHostId && myPeerId === currentHostId);
     
     updateStatusText();
-    updateHostVisuals();
+    updatePeerVisuals();
     
     Object.keys(peers).forEach(peerId => {
         const peerState = peers[peerId];
@@ -438,18 +470,29 @@ function updateHostButtons() {
     });
 }
 
-// Update labels with crown icons for the host
-function updateHostVisuals() {
+// Update labels with crown icons for host and mute/deafen status icons
+function updatePeerVisuals() {
     const isHost = (myPeerId && currentHostId && myPeerId === currentHostId);
     
     // Update local label
     const localLabel = document.querySelector('#localVideoWrapper .video-label');
     if (localLabel) {
+        let content = 'You';
         if (isHost) {
-            localLabel.innerHTML = `You <svg class="crown-icon" viewBox="0 0 24 24" width="14" height="14"><path d="M2 4l3 12h14l3-12-6 7-4-7-4 7-6-7zm3 14h14v2H5v-2z"/></svg>`;
-        } else {
-            localLabel.innerHTML = 'You';
+            content += ` <svg class="crown-icon" viewBox="0 0 24 24" width="14" height="14"><path d="M2 4l3 12h14l3-12-6 7-4-7-4 7-6-7zm3 14h14v2H5v-2z"/></svg>`;
         }
+        
+        const audioTrack = localStream ? localStream.getAudioTracks()[0] : null;
+        const isMicMuted = audioTrack ? !audioTrack.enabled : true;
+        
+        if (isMicMuted) {
+            content += ` <svg class="status-icon mic-muted-icon" viewBox="0 0 24 24" width="14" height="14" style="color: var(--accent-red); filter: drop-shadow(0 0 4px rgba(255, 51, 102, 0.4)); overflow: visible;"><path fill="currentColor" d="M12 14c1.66 0 3-1.34 3-3V5c0-1.66-1.34-3-3-3S9 3.34 9 5v6c0 1.66 1.34 3 3 3zm5.3-3c0 3-2.54 5.1-5.3 5.1S6.7 14 6.7 11H5c0 3.41 2.72 6.23 6 6.72V21h2v-3.28c3.28-.48 6-3.3 6-6.72h-1.7z"/><line x1="3" y1="3" x2="21" y2="21" stroke="var(--accent-red)" stroke-width="2.5" stroke-linecap="round"/></svg>`;
+        }
+        if (isDeafened) {
+            content += ` <svg class="status-icon deafened-icon" viewBox="0 0 24 24" width="14" height="14" style="color: var(--accent-red); filter: drop-shadow(0 0 4px rgba(255, 51, 102, 0.4)); overflow: visible;"><path fill="currentColor" d="M12 3a9 9 0 0 0-9 9v7a3 3 0 0 0 3 3h2v-8H5v-2a7 7 0 0 1 14 0v2h-3v8h2a3 3 0 0 0 3-3v-7a9 9 0 0 0-9-9z"/><line x1="3" y1="3" x2="21" y2="21" stroke="var(--accent-red)" stroke-width="2.5" stroke-linecap="round"/></svg>`;
+        }
+        
+        localLabel.innerHTML = content;
     }
 
     // Update remote labels
@@ -458,12 +501,19 @@ function updateHostVisuals() {
         if (!peerState.wrapperElement) return;
         const label = peerState.wrapperElement.querySelector('.video-label');
         if (label) {
+            let content = `User (${peerId.substring(5, 9)})`;
             const isPeerHost = (peerId === currentHostId);
             if (isPeerHost) {
-                label.innerHTML = `User (${peerId.substring(5, 9)}) <svg class="crown-icon" viewBox="0 0 24 24" width="14" height="14"><path d="M2 4l3 12h14l3-12-6 7-4-7-4 7-6-7zm3 14h14v2H5v-2z"/></svg>`;
-            } else {
-                label.innerHTML = `User (${peerId.substring(5, 9)})`;
+                content += ` <svg class="crown-icon" viewBox="0 0 24 24" width="14" height="14"><path d="M2 4l3 12h14l3-12-6 7-4-7-4 7-6-7zm3 14h14v2H5v-2z"/></svg>`;
             }
+            if (peerState.micMuted) {
+                content += ` <svg class="status-icon mic-muted-icon" viewBox="0 0 24 24" width="14" height="14" style="color: var(--accent-red); filter: drop-shadow(0 0 4px rgba(255, 51, 102, 0.4)); overflow: visible;"><path fill="currentColor" d="M12 14c1.66 0 3-1.34 3-3V5c0-1.66-1.34-3-3-3S9 3.34 9 5v6c0 1.66 1.34 3 3 3zm5.3-3c0 3-2.54 5.1-5.3 5.1S6.7 14 6.7 11H5c0 3.41 2.72 6.23 6 6.72V21h2v-3.28c3.28-.48 6-3.3 6-6.72h-1.7z"/><line x1="3" y1="3" x2="21" y2="21" stroke="var(--accent-red)" stroke-width="2.5" stroke-linecap="round"/></svg>`;
+            }
+            if (peerState.deafened) {
+                content += ` <svg class="status-icon deafened-icon" viewBox="0 0 24 24" width="14" height="14" style="color: var(--accent-red); filter: drop-shadow(0 0 4px rgba(255, 51, 102, 0.4)); overflow: visible;"><path fill="currentColor" d="M12 3a9 9 0 0 0-9 9v7a3 3 0 0 0 3 3h2v-8H5v-2a7 7 0 0 1 14 0v2h-3v8h2a3 3 0 0 0 3-3v-7a9 9 0 0 0-9-9z"/><line x1="3" y1="3" x2="21" y2="21" stroke="var(--accent-red)" stroke-width="2.5" stroke-linecap="round"/></svg>`;
+            }
+            
+            label.innerHTML = content;
         }
     });
 }
@@ -472,17 +522,6 @@ function updateHostVisuals() {
 function toggleDeafen() {
     isDeafened = !isDeafened;
     deafenBtn.classList.toggle('muted', isDeafened);
-    
-    const deafenPath = document.getElementById('deafenPath');
-    if (deafenPath) {
-        if (isDeafened) {
-            // Deafen icon (headphones with a line/slash)
-            deafenPath.setAttribute('d', 'M12 3a9 9 0 0 0-9 9v7a3 3 0 0 0 3 3h2v-8H5v-2a7 7 0 0 1 14 0v2h-3v4.58l2 2V12a9 9 0 0 0-9-9zM19 18a3 3 0 0 1-3 3h-2v-4.58l5 5V18zM4.41 2.86L2.86 4.41l16.73 16.73 1.55-1.55L4.41 2.86z');
-        } else {
-            // Default headphones path
-            deafenPath.setAttribute('d', 'M12 3a9 9 0 0 0-9 9v7a3 3 0 0 0 3 3h2v-8H5v-2a7 7 0 0 1 14 0v2h-3v8h2a3 3 0 0 0 3-3v-7a9 9 0 0 0-9-9z');
-        }
-    }
 
     // Mute/unmute all remote audio streams
     Object.keys(peers).forEach(peerId => {
@@ -510,9 +549,12 @@ function toggleDeafen() {
                 muteVideoBtn.classList.add('muted');
                 localVideo.classList.remove('active');
                 localPlaceholder.classList.remove('hidden');
+                updateLocalPlaceholderText();
             }
         }
     }
+    updatePeerVisuals();
+    broadcastLocalState();
 }
 
 // Close and clean up a peer connection
@@ -567,12 +609,14 @@ async function handleSignalingMessage(msg) {
         }
         updateLayout();
         updateHostButtons();
+        broadcastLocalState();
     }
     else if (msg.type === 'peer-joined') {
         console.log(`Peer joined: ${msg.peerId}`);
         initPeerConnection(msg.peerId, false);
         updateLayout();
         updateHostButtons();
+        broadcastLocalState();
     }
     else if (msg.type === 'peer-left') {
         console.log(`Peer left: ${msg.peerId}`);
@@ -584,6 +628,14 @@ async function handleSignalingMessage(msg) {
         console.log(`Host changed: ${msg.hostId}`);
         currentHostId = msg.hostId;
         updateHostButtons();
+    }
+    else if (msg.type === 'state-update') {
+        const peerState = peers[sender];
+        if (peerState) {
+            peerState.micMuted = msg.micMuted;
+            peerState.deafened = msg.deafened;
+            updatePeerVisuals();
+        }
     }
     else if (sender) {
         const peerState = peers[sender];
@@ -637,6 +689,8 @@ function toggleAudio() {
         if (audioTrack) {
             audioTrack.enabled = !audioTrack.enabled;
             muteAudioBtn.classList.toggle('muted', !audioTrack.enabled);
+            updatePeerVisuals();
+            broadcastLocalState();
         }
     }
 }
@@ -655,7 +709,9 @@ function toggleVideo() {
             } else {
                 localVideo.classList.remove('active');
                 localPlaceholder.classList.remove('hidden');
+                updateLocalPlaceholderText();
             }
+            updateSwitchCameraButtonVisibility();
         }
     }
 }
@@ -684,15 +740,14 @@ function endCall() {
     muteAudioBtn.disabled = true;
     muteVideoBtn.disabled = true;
     deafenBtn.disabled = true;
+    if (switchCameraBtn) {
+        switchCameraBtn.disabled = true;
+        switchCameraBtn.classList.add('hidden');
+    }
     muteAudioBtn.classList.remove('muted');
     muteVideoBtn.classList.remove('muted');
     deafenBtn.classList.remove('muted');
     isDeafened = false;
-
-    const deafenPath = document.getElementById('deafenPath');
-    if (deafenPath) {
-        deafenPath.setAttribute('d', 'M12 3a9 9 0 0 0-9 9v7a3 3 0 0 0 3 3h2v-8H5v-2a7 7 0 0 1 14 0v2h-3v8h2a3 3 0 0 0 3-3v-7a9 9 0 0 0-9-9z');
-    }
 
     if (socket) {
         socket.onclose = null; // prevent recursive trigger
@@ -707,4 +762,240 @@ function endCall() {
 
     // Redirect to home page
     window.location.href = '/';
+}
+
+// Helper to initialize or resume AudioContext on user interaction
+function getAudioContext() {
+    if (!audioContext) {
+        audioContext = new (window.AudioContext || window.webkitAudioContext)();
+    }
+    if (audioContext.state === 'suspended') {
+        audioContext.resume().catch(err => console.error('Error resuming AudioContext:', err));
+    }
+    return audioContext;
+}
+
+// Monitor audio levels to detect speaking (voice activation border)
+function monitorSpeech(stream, wrapperElement) {
+    if (!stream || stream.getAudioTracks().length === 0 || !wrapperElement) return;
+
+    // Clean up any existing monitor on this wrapper element to prevent leaks/conflicts
+    if (wrapperElement.__speechMonitorCleanup) {
+        wrapperElement.__speechMonitorCleanup();
+    }
+
+    try {
+        const ctx = getAudioContext();
+        const source = ctx.createMediaStreamSource(stream);
+        const analyser = ctx.createAnalyser();
+        analyser.fftSize = 256;
+        source.connect(analyser);
+
+        const bufferLength = analyser.fftSize;
+        const dataArray = new Float32Array(bufferLength);
+        
+        let speakingTimeout = null;
+        let isSpeaking = false;
+        
+        const intervalId = setInterval(() => {
+            // Stop loop if stream is no longer active or wrapper is deleted
+            if (!stream.active || !wrapperElement.isConnected) {
+                cleanup();
+                return;
+            }
+            
+            // Check if audio track is active and enabled
+            const audioTrack = stream.getAudioTracks()[0];
+            if (!audioTrack || !audioTrack.enabled || audioTrack.muted) {
+                if (isSpeaking) {
+                    isSpeaking = false;
+                    wrapperElement.classList.remove('speaking');
+                }
+                return;
+            }
+
+            // Using Root Mean Square (RMS) on time domain data is significantly more
+            // robust than averaging frequency bins, preventing background comfort noise,
+            // static hiss, or low frequency fan hums from triggering voice outlines.
+            analyser.getFloatTimeDomainData(dataArray);
+            let sumSquares = 0;
+            for (let i = 0; i < bufferLength; i++) {
+                sumSquares += dataArray[i] * dataArray[i];
+            }
+            const rms = Math.sqrt(sumSquares / bufferLength);
+
+            // A threshold of 0.025 (approx -32dB) represents active speech,
+            // while ignoring silent room environments or device static.
+            if (rms > 0.025) {
+                if (!isSpeaking) {
+                    isSpeaking = true;
+                    wrapperElement.classList.add('speaking');
+                }
+                if (speakingTimeout) clearTimeout(speakingTimeout);
+                speakingTimeout = setTimeout(() => {
+                    isSpeaking = false;
+                    wrapperElement.classList.remove('speaking');
+                }, 400); // Hold glow for 400ms
+            }
+        }, 100);
+
+        const cleanup = () => {
+            clearInterval(intervalId);
+            if (speakingTimeout) clearTimeout(speakingTimeout);
+            try {
+                source.disconnect();
+                analyser.disconnect();
+            } catch (e) {}
+            if (wrapperElement.classList.contains('speaking')) {
+                wrapperElement.classList.remove('speaking');
+            }
+            delete wrapperElement.__speechMonitorCleanup;
+        };
+
+        wrapperElement.__speechMonitorCleanup = cleanup;
+
+    } catch (e) {
+        console.error('Error setting up speech monitor:', e);
+    }
+}
+
+// Enumerate available video input devices
+async function updateVideoDevices() {
+    try {
+        if (!navigator.mediaDevices || !navigator.mediaDevices.enumerateDevices) return;
+        const devices = await navigator.mediaDevices.enumerateDevices();
+        videoDevices = devices.filter(device => device.kind === 'videoinput');
+        console.log('Available video input devices:', videoDevices);
+        
+        // Find current device index based on localStream's video track
+        if (localStream) {
+            const videoTrack = localStream.getVideoTracks()[0];
+            if (videoTrack) {
+                const settings = videoTrack.getSettings();
+                const currentDeviceId = settings.deviceId;
+                if (currentDeviceId) {
+                    const idx = videoDevices.findIndex(d => d.deviceId === currentDeviceId);
+                    if (idx !== -1) {
+                        currentVideoDeviceIndex = idx;
+                    }
+                }
+            }
+        }
+    } catch (err) {
+        console.error('Error enumerating video devices:', err);
+    }
+}
+
+// Toggle visibility of the Switch Camera button
+function updateSwitchCameraButtonVisibility() {
+    if (!switchCameraBtn) return;
+    const videoTrack = localStream ? localStream.getVideoTracks()[0] : null;
+    const isCameraEnabled = videoTrack && videoTrack.enabled;
+    
+    // Only show switcher if camera is enabled AND multiple cameras exist
+    if (isCameraEnabled && videoDevices.length > 1) {
+        switchCameraBtn.classList.remove('hidden');
+    } else {
+        switchCameraBtn.classList.add('hidden');
+    }
+}
+
+// Switch/flip local camera track
+async function switchCamera() {
+    if (!localStream || videoDevices.length <= 1) return;
+    
+    const oldTrack = localStream.getVideoTracks()[0];
+    if (!oldTrack) return;
+    
+    // Cycle to next video device
+    currentVideoDeviceIndex = (currentVideoDeviceIndex + 1) % videoDevices.length;
+    const newDevice = videoDevices[currentVideoDeviceIndex];
+    console.log(`Switching camera to: ${newDevice.label || newDevice.deviceId}`);
+    
+    try {
+        // Stop current track to release hardware
+        oldTrack.stop();
+        
+        // Get new track constraints
+        const constraints = {
+            video: {
+                deviceId: { exact: newDevice.deviceId }
+            },
+            audio: false
+        };
+        
+        const tempStream = await navigator.mediaDevices.getUserMedia(constraints);
+        const newTrack = tempStream.getVideoTracks()[0];
+        
+        if (newTrack) {
+            newTrack.enabled = true;
+            
+            // Replace track in localStream
+            localStream.removeTrack(oldTrack);
+            localStream.addTrack(newTrack);
+            
+            // Re-assign local video source
+            localVideo.srcObject = localStream;
+            
+            // Replace track on all peer connections
+            Object.keys(peers).forEach(peerId => {
+                const pc = peers[peerId].peerConnection;
+                if (pc) {
+                    const videoSender = pc.getSenders().find(s => s.track && s.track.kind === 'video');
+                    if (videoSender) {
+                        videoSender.replaceTrack(newTrack).then(() => {
+                            console.log(`Replaced video track for peer: ${peerId}`);
+                        }).catch(err => {
+                            console.error(`Error replacing video track for peer ${peerId}:`, err);
+                        });
+                    }
+                }
+            });
+        }
+    } catch (err) {
+        console.error('Error switching camera:', err);
+        alert('Failed to switch camera device. Please ensure it is not in use by another app.');
+    }
+}
+
+// Watch for connected/disconnected devices dynamically
+if (navigator.mediaDevices && navigator.mediaDevices.addEventListener) {
+    navigator.mediaDevices.addEventListener('devicechange', async () => {
+        await updateVideoDevices();
+        updateSwitchCameraButtonVisibility();
+    });
+}
+
+// Update local video placeholder status text dynamically
+function updateLocalPlaceholderText() {
+    const placeholderText = document.getElementById('localPlaceholderText');
+    if (!placeholderText) return;
+
+    if (!localStream) {
+        placeholderText.textContent = 'Camera is off';
+        return;
+    }
+
+    const hasVideo = localStream.getVideoTracks().length > 0;
+    if (!hasVideo) {
+        placeholderText.textContent = 'Audio-only';
+    } else {
+        const videoTrack = localStream.getVideoTracks()[0];
+        if (videoTrack && videoTrack.enabled) {
+            placeholderText.textContent = '';
+        } else {
+            placeholderText.textContent = 'Camera is off';
+        }
+    }
+}
+
+// Broadcast local mic and deafen states to other participants
+function broadcastLocalState() {
+    const audioTrack = localStream ? localStream.getAudioTracks()[0] : null;
+    const isMicMuted = audioTrack ? !audioTrack.enabled : true;
+    sendMessage({
+        type: 'state-update',
+        micMuted: isMicMuted,
+        deafened: isDeafened
+    });
 }
