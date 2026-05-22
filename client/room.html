@@ -38,29 +38,18 @@
 
         <!-- Main Video Workspace -->
         <main class="call-workspace">
-            <div class="video-container">
-                <!-- Remote Video (Main Frame) -->
-                <div class="video-wrapper remote-wrapper" id="remoteVideoWrapper">
-                    <video id="remoteVideo" autoplay playsinline></video>
-                    <div class="video-placeholder" id="remotePlaceholder">
-                        <!-- Spinning loader icon (Waiting state) -->
-                        <div class="spinner-icon" id="remoteSpinner">
-                            <svg class="spinner-svg" viewBox="0 0 24 24" width="48" height="48">
-                                <circle class="spinner-path" cx="12" cy="12" r="10" fill="none" stroke="currentColor" stroke-width="3"></circle>
-                            </svg>
-                        </div>
-                        <!-- User icon (Connected without camera state) -->
-                        <div class="placeholder-icon" id="remoteUserIcon" style="display: none;">
-                            <svg viewBox="0 0 24 24" width="48" height="48">
-                                <path fill="currentColor" d="M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm0 2c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z"/>
-                            </svg>
-                        </div>
-                        <p class="placeholder-text" id="remotePlaceholderText">Waiting for remote peer...</p>
+            <div class="video-container" id="videoContainer">
+                <!-- Waiting Placeholder (shown when alone in the room) -->
+                <div class="video-placeholder" id="waitingPlaceholder">
+                    <div class="spinner-icon">
+                        <svg class="spinner-svg" viewBox="0 0 24 24" width="48" height="48">
+                            <circle class="spinner-path" cx="12" cy="12" r="10" fill="none" stroke="currentColor" stroke-width="3"></circle>
+                        </svg>
                     </div>
-                    <span class="video-label">Remote User</span>
+                    <p class="placeholder-text" id="waitingPlaceholderText">Waiting for other participants to join...</p>
                 </div>
 
-                <!-- Local Video (PiP Window) -->
+                <!-- Local Video (PiP Window / Grid Item) -->
                 <div class="video-wrapper local-wrapper" id="localVideoWrapper">
                     <video id="localVideo" autoplay playsinline muted></video>
                     <div class="video-placeholder" id="localPlaceholder">

@@ -58,14 +58,62 @@ int main() {
             std::string* room_str = static_cast<std::string*>(conn.userdata());
             if (room_str) {
                 std::string room_id = *room_str;
-                if (!room_manager.join_room(room_id, &conn)) {
+                JoinResult res = room_manager.join_room(room_id, &conn);
+                if (!res.success) {
                     conn.close("Room full");
+                    return;
+                }
+
+                // Send init to the joining peer
+                crow::json::wvalue init_msg;
+                init_msg["type"] = "init";
+                init_msg["peerId"] = res.peer_id;
+                init_msg["hostId"] = res.host_id;
+                
+                std::vector<crow::json::wvalue> peers_arr;
+                for (const auto& peer : res.existing_peers) {
+                    peers_arr.push_back(peer);
+                }
+                init_msg["peers"] = std::move(peers_arr);
+                conn.send_text(init_msg.dump());
+
+                // Broadcast peer-joined to all other peers in the room
+                crow::json::wvalue joined_msg;
+                joined_msg["type"] = "peer-joined";
+                joined_msg["peerId"] = res.peer_id;
+                std::string joined_str = joined_msg.dump();
+
+                for (auto* peer_conn : res.peers_to_notify) {
+                    peer_conn->send_text(joined_str);
                 }
             }
         })
         .onclose([&](crow::websocket::connection& conn, const std::string& reason, uint16_t status_code) {
-            room_manager.leave_room(&conn);
-            
+            LeaveResult res = room_manager.leave_room(&conn);
+            if (res.success) {
+                // Broadcast peer-left to remaining peers
+                crow::json::wvalue left_msg;
+                left_msg["type"] = "peer-left";
+                left_msg["peerId"] = res.peer_id;
+                std::string left_str = left_msg.dump();
+
+                for (auto* peer_conn : res.peers_to_notify) {
+                    peer_conn->send_text(left_str);
+                }
+
+                // Broadcast host-changed if host transferred
+                if (!res.new_host_id.empty()) {
+                    crow::json::wvalue host_msg;
+                    host_msg["type"] = "host-changed";
+                    host_msg["hostId"] = res.new_host_id;
+                    std::string host_str = host_msg.dump();
+
+                    for (auto* peer_conn : res.peers_to_notify) {
+                        peer_conn->send_text(host_str);
+                    }
+                }
+            }
+
             // Clean up allocated userdata memory
             std::string* room_str = static_cast<std::string*>(conn.userdata());
             if (room_str) {
@@ -75,7 +123,7 @@ int main() {
         })
         .onmessage([&](crow::websocket::connection& conn, const std::string& data, bool is_binary) {
             if (is_binary) return;
-            room_manager.broadcast(&conn, data);
+            room_manager.handle_message(&conn, data);
         });
 
     CROW_ROUTE(app, "/<string>")([](std::string room_id) {

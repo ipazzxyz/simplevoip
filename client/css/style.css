@@ -668,3 +668,94 @@ body {
     }
 }
 
+/* ==========================================
+   Grid Mode & Host Control Additions
+   ========================================== */
+
+/* Grid Mode Layout (for 3+ participants or when host wants grid) */
+.video-container.grid-mode {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+    grid-auto-rows: 1fr;
+    gap: 16px;
+    padding: 0;
+}
+
+/* Local wrapper in Grid Mode becomes a standard grid cell instead of absolute PiP */
+.video-container.grid-mode .local-wrapper {
+    position: relative;
+    bottom: auto;
+    right: auto;
+    width: 100%;
+    height: 100%;
+    border-radius: 20px;
+    border: 1px solid var(--glass-border);
+    box-shadow: var(--shadow-glow);
+    animation: none;
+}
+
+/* Mobile responsive override for grid mode */
+@media (max-width: 768px) {
+    .video-container.grid-mode {
+        grid-template-columns: 1fr;
+        grid-auto-rows: 1fr;
+        overflow-y: auto;
+        padding-bottom: 90px; /* Leave space for controls */
+    }
+
+    .video-container.grid-mode .local-wrapper {
+        height: 200px; /* Fixed height for local tile in vertical grid */
+    }
+}
+
+/* Kick Button Overlay */
+.kick-btn {
+    position: absolute;
+    top: 12px;
+    right: 12px;
+    width: 32px;
+    height: 32px;
+    border-radius: 50%;
+    background: rgba(255, 51, 102, 0.85);
+    border: 1px solid rgba(255, 255, 255, 0.2);
+    color: #ffffff;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    cursor: pointer;
+    z-index: 15;
+    opacity: 0.85;
+    transition: all 0.2s ease-in-out;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+}
+
+.kick-btn:hover {
+    background: #ff1a53;
+    transform: scale(1.1);
+    opacity: 1;
+    box-shadow: 0 4px 16px rgba(255, 51, 102, 0.5);
+}
+
+.kick-btn svg {
+    width: 16px;
+    height: 16px;
+}
+
+/* When waiting placeholder is active, position it correctly */
+.video-container .video-placeholder#waitingPlaceholder {
+    border-radius: 20px;
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    display: flex;
+    z-index: 1;
+}
+
+/* If waiting placeholder is hidden */
+#waitingPlaceholder.hidden {
+    display: none !important;
+}
+
+
