@@ -1,0 +1,93 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SimpleVoIP - WebRTC Video Room</title>
+    <link rel="stylesheet" href="style.css">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600;700&display=swap" rel="stylesheet">
+</head>
+<body>
+    <div class="app-container">
+        <!-- Header -->
+        <header class="app-header">
+            <div class="logo">
+                <svg class="logo-icon" viewBox="0 0 24 24" width="24" height="24">
+                    <path fill="currentColor" d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-1 17.93c-3.95-.49-7-3.85-7-7.93 0-.62.08-1.21.21-1.79L9 15v1c0 1.1.9 2 2 2v1.93zm6.9-2.53c-.26-.81-1-1.4-1.9-1.4h-1v-3c0-.55-.45-1-1-1h-6v-2h2c.55 0 1-.45 1-1V7h2c1.1 0 2-.9 2-2v-.41c2.93 1.19 5 4.06 5 7.41 0 2.08-.8 3.97-2.1 5.39z"/>
+                </svg>
+                <span class="logo-text">Simple<span class="highlight">VoIP</span></span>
+            </div>
+            
+            <div class="status-panel">
+                <span class="status-dot disconnected" id="statusDot"></span>
+                <span class="status-text" id="statusText">Disconnected</span>
+            </div>
+        </header>
+
+        <!-- Main Video Workspace -->
+        <main class="call-workspace">
+            <div class="video-container">
+                <!-- Remote Video (Main Frame) -->
+                <div class="video-wrapper remote-wrapper" id="remoteVideoWrapper">
+                    <video id="remoteVideo" autoplay playsinline></video>
+                    <div class="video-placeholder" id="remotePlaceholder">
+                        <div class="placeholder-icon">
+                            <svg viewBox="0 0 24 24" width="48" height="48">
+                                <path fill="currentColor" d="M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm0 2c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z"/>
+                            </svg>
+                        </div>
+                        <p class="placeholder-text">Waiting for remote peer...</p>
+                        <div class="loading-wave">
+                            <span></span><span></span><span></span>
+                        </div>
+                    </div>
+                    <span class="video-label">Remote User</span>
+                </div>
+
+                <!-- Local Video (PiP Window) -->
+                <div class="video-wrapper local-wrapper" id="localVideoWrapper">
+                    <video id="localVideo" autoplay playsinline muted></video>
+                    <div class="video-placeholder" id="localPlaceholder">
+                        <div class="placeholder-icon">
+                            <svg viewBox="0 0 24 24" width="24" height="24">
+                                <path fill="currentColor" d="M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm0 2c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z"/>
+                            </svg>
+                        </div>
+                    </div>
+                    <span class="video-label">You</span>
+                </div>
+            </div>
+        </main>
+
+        <!-- Controls Dashboard -->
+        <footer class="call-controls">
+            <div class="controls-panel">
+                <!-- Join/Disconnect Call Button -->
+                <button class="control-btn call-action-btn connect-btn" id="joinBtn" title="Connect to call">
+                    <svg viewBox="0 0 24 24" width="24" height="24" class="btn-icon">
+                        <path fill="currentColor" d="M20.01 15.38c-1.23 0-2.42-.2-3.53-.57a1.003 1.003 0 0 0-1.01.24l-2.2 2.2a15.045 15.045 0 0 1-6.59-6.59l2.2-2.2c.28-.28.36-.67.25-1.02C8.79 6.35 8.59 5.16 8.59 3.92c0-.55-.45-1-1-1H4.11c-.55 0-1 .45-1 1C3.11 13.04 10.96 20.89 20.01 20.89c.55 0 1-.45 1-1v-3.51c0-.55-.45-1-1-1z"/>
+                    </svg>
+                </button>
+
+                <!-- Toggle Audio Button (Disabled initially) -->
+                <button class="control-btn media-toggle-btn secondary-btn" id="muteAudio" title="Toggle Microphone" disabled>
+                    <svg viewBox="0 0 24 24" width="20" height="20" class="btn-icon">
+                        <path fill="currentColor" id="micPath" d="M12 14c1.66 0 3-1.34 3-3V5c0-1.66-1.34-3-3-3S9 3.34 9 5v6c0 1.66 1.34 3 3 3zm5.3-3c0 3-2.54 5.1-5.3 5.1S6.7 14 6.7 11H5c0 3.41 2.72 6.23 6 6.72V21h2v-3.28c3.28-.48 6-3.3 6-6.72h-1.7z"/>
+                    </svg>
+                </button>
+
+                <!-- Toggle Video Button (Disabled initially) -->
+                <button class="control-btn media-toggle-btn secondary-btn" id="muteVideo" title="Toggle Camera" disabled>
+                    <svg viewBox="0 0 24 24" width="20" height="20" class="btn-icon">
+                        <path fill="currentColor" id="cameraPath" d="M17 10.5V7c0-.55-.45-1-1-1H4c-.55 0-1 .45-1 1v10c0 .55.45 1 1 1h12c.55 0 1-.45 1-1v-3.5l4 4v-11l-4 4z"/>
+                    </svg>
+                </button>
+            </div>
+        </footer>
+    </div>
+    
+    <script src="client.js"></script>
+</body>
+</html>

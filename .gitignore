@@ -1,0 +1,30 @@
+# CMake build directory
+/build/
+/out/
+
+# Compiled files
+*.exe
+*.o
+*.obj
+*.a
+*.lib
+*.so
+*.dylib
+
+# Local IDEs / Editors
+.vscode/
+.vs/
+.idea/
+*.user
+*.suo
+*.sln
+*.vcxproj
+*.filters
+
+# Log files
+*.log
+nohup.out
+
+# OS specific files
+.DS_Store
+Thumbs.db

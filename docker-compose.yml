@@ -1,0 +1,16 @@
+version: '3.8'
+
+services:
+  webrtc-server:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: webrtc_app
+    ports:
+      - "127.0.0.1:8080:8080" # Binds port 8080 only to localhost for secure proxying via Nginx
+    restart: always
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
