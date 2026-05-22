@@ -1,0 +1,298 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SimpleVoIP - Private Video Calling Rooms</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600;700&display=swap" rel="stylesheet">
+    <style>
+        /* Core Variables */
+        :root {
+            --bg-primary: #0a0b10;
+            --bg-secondary: #12131a;
+            --accent-blue: #00d2ff;
+            --accent-purple: #9d4edd;
+            --accent-green: #00f5d4;
+            --accent-red: #ff3366;
+            --text-primary: #ffffff;
+            --text-secondary: #8e92a2;
+            --glass-bg: rgba(18, 19, 26, 0.65);
+            --glass-border: rgba(255, 255, 255, 0.08);
+            --shadow-glow: 0 8px 32px 0 rgba(0, 210, 255, 0.15);
+        }
+
+        /* Global Reset */
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+            font-family: 'Outfit', sans-serif;
+            -webkit-font-smoothing: antialiased;
+        }
+
+        body {
+            background-color: var(--bg-primary);
+            background-image: 
+                radial-gradient(circle at 10% 20%, rgba(0, 210, 255, 0.08) 0%, transparent 40%),
+                radial-gradient(circle at 90% 80%, rgba(157, 78, 221, 0.08) 0%, transparent 40%);
+            color: var(--text-primary);
+            height: 100vh;
+            overflow: hidden;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            padding: 20px;
+        }
+
+        /* Home Card Styling */
+        .home-card {
+            width: 100%;
+            max-width: 440px;
+            background: var(--glass-bg);
+            backdrop-filter: blur(20px);
+            -webkit-backdrop-filter: blur(20px);
+            border: 1px solid var(--glass-border);
+            border-radius: 24px;
+            padding: 40px 30px;
+            box-shadow: 0 15px 45px rgba(0, 0, 0, 0.4), var(--shadow-glow);
+            text-align: center;
+            animation: cardEntrance 0.8s cubic-bezier(0.16, 1, 0.3, 1);
+            position: relative;
+            overflow: hidden;
+        }
+
+        /* Rotating glowing border effect */
+        .home-card::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 4px;
+            background: linear-gradient(90deg, transparent, var(--accent-blue), var(--accent-purple), transparent);
+            animation: borderFlow 3s linear infinite;
+        }
+
+        /* Logo Area */
+        .logo-container {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 12px;
+            margin-bottom: 30px;
+        }
+
+        .logo-icon {
+            color: var(--accent-blue);
+            filter: drop-shadow(0 0 12px rgba(0, 210, 255, 0.6));
+            animation: rotateLogo 12s linear infinite;
+        }
+
+        .logo-text {
+            font-size: 2rem;
+            font-weight: 700;
+            letter-spacing: 0.5px;
+        }
+
+        .logo-text .highlight {
+            background: linear-gradient(135deg, var(--accent-blue) 0%, var(--accent-purple) 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+
+        .subtitle {
+            font-size: 0.95rem;
+            color: var(--text-secondary);
+            margin-bottom: 35px;
+            line-height: 1.5;
+        }
+
+        /* Action Buttons & Inputs */
+        .action-group {
+            display: flex;
+            flex-direction: column;
+            gap: 20px;
+        }
+
+        .primary-btn {
+            background: linear-gradient(135deg, var(--accent-blue) 0%, var(--accent-purple) 100%);
+            color: #ffffff;
+            border: none;
+            padding: 14px 28px;
+            font-size: 1rem;
+            font-weight: 600;
+            border-radius: 12px;
+            cursor: pointer;
+            transition: all 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+            box-shadow: 0 5px 15px rgba(0, 210, 255, 0.3);
+            width: 100%;
+        }
+
+        .primary-btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 8px 25px rgba(0, 210, 255, 0.5);
+            filter: brightness(1.1);
+        }
+
+        .primary-btn:active {
+            transform: translateY(0);
+        }
+
+        /* Divider */
+        .divider {
+            display: flex;
+            align-items: center;
+            text-align: center;
+            color: var(--text-secondary);
+            font-size: 0.85rem;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            margin: 10px 0;
+        }
+
+        .divider::before, .divider::after {
+            content: '';
+            flex: 1;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+        }
+
+        .divider:not(:empty)::before {
+            margin-right: 15px;
+        }
+
+        .divider:not(:empty)::after {
+            margin-left: 15px;
+        }
+
+        /* Join Form */
+        .join-form {
+            display: flex;
+            gap: 10px;
+        }
+
+        .text-input {
+            flex: 1;
+            background: rgba(255, 255, 255, 0.03);
+            border: 1px solid var(--glass-border);
+            border-radius: 12px;
+            padding: 14px 18px;
+            color: #ffffff;
+            font-size: 0.95rem;
+            outline: none;
+            transition: all 0.3s ease;
+        }
+
+        .text-input:focus {
+            border-color: var(--accent-blue);
+            box-shadow: 0 0 10px rgba(0, 210, 255, 0.2);
+            background: rgba(255, 255, 255, 0.06);
+        }
+
+        .text-input::placeholder {
+            color: rgba(255, 255, 255, 0.25);
+        }
+
+        .secondary-btn {
+            background: rgba(255, 255, 255, 0.05);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            color: var(--text-primary);
+            padding: 14px 22px;
+            font-size: 0.95rem;
+            font-weight: 600;
+            border-radius: 12px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+
+        .secondary-btn:hover {
+            background: rgba(255, 255, 255, 0.12);
+            border-color: rgba(255, 255, 255, 0.2);
+        }
+
+        /* Animations */
+        @keyframes rotateLogo {
+            from { transform: rotate(0deg); }
+            to { transform: rotate(360deg); }
+        }
+
+        @keyframes cardEntrance {
+            from { transform: translateY(30px); opacity: 0; }
+            to { transform: translateY(0); opacity: 1; }
+        }
+
+        @keyframes borderFlow {
+            0% { background-position: 0% 50%; }
+            100% { background-position: 400% 50%; }
+        }
+
+        /* Responsive */
+        @media (max-width: 480px) {
+            .home-card {
+                padding: 30px 20px;
+                border-radius: 20px;
+            }
+            .logo-text {
+                font-size: 1.7rem;
+            }
+            .join-form {
+                flex-direction: column;
+            }
+            .secondary-btn {
+                width: 100%;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="home-card">
+        <div class="logo-container">
+            <svg class="logo-icon" viewBox="0 0 24 24" width="48" height="48">
+                <path fill="currentColor" d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-1 17.93c-3.95-.49-7-3.85-7-7.93 0-.62.08-1.21.21-1.79L9 15v1c0 1.1.9 2 2 2v1.93zm6.9-2.53c-.26-.81-1-1.4-1.9-1.4h-1v-3c0-.55-.45-1-1-1h-6v-2h2c.55 0 1-.45 1-1V7h2c1.1 0 2-.9 2-2v-.41c2.93 1.19 5 4.06 5 7.41 0 2.08-.8 3.97-2.1 5.39z"/>
+            </svg>
+            <h1 class="logo-text">Simple<span class="highlight">VoIP</span></h1>
+        </div>
+
+        <p class="subtitle">Secure, fast, and high-quality 1-on-1 video calls straight from your browser. No registration required.</p>
+
+        <div class="action-group">
+            <!-- Create Room Action -->
+            <button class="primary-btn" id="createRoomBtn">Create Private Room</button>
+
+            <div class="divider">or</div>
+
+            <!-- Join Room Action -->
+            <form class="join-form" id="joinForm">
+                <input class="text-input" type="text" id="roomIdInput" placeholder="Enter Room ID" autocomplete="off" required>
+                <button class="secondary-btn" type="submit">Join</button>
+            </form>
+        </div>
+    </div>
+
+    <script>
+        // Generate random room ID (format: xxx-xxxx-xxx)
+        function generateRoomId() {
+            const chars = 'abcdefghijklmnopqrstuvwxyz0123456789';
+            const segment = (len) => Array.from({length: len}, () => chars[Math.floor(Math.random() * chars.length)]).join('');
+            return `${segment(3)}-${segment(4)}-${segment(3)}`;
+        }
+
+        // Event listener for creating a room
+        document.getElementById('createRoomBtn').addEventListener('click', () => {
+            const roomId = generateRoomId();
+            window.location.href = `/${roomId}`;
+        });
+
+        // Event listener for joining an existing room
+        document.getElementById('joinForm').addEventListener('submit', (e) => {
+            e.preventDefault();
+            const roomId = document.getElementById('roomIdInput').value.trim();
+            if (roomId) {
+                // Redirect user to the room URL
+                window.location.href = `/${roomId}`;
+            }
+        });
+    </script>
+</body>
+</html>

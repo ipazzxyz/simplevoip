@@ -121,8 +121,9 @@ async function startCall() {
 
     updateStatus('Connecting to server...', 'connecting');
     
+    const room = window.location.pathname.substring(1);
     const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
-    const wsUrl = `${protocol}//${window.location.host}/ws`;
+    const wsUrl = `${protocol}//${window.location.host}/ws?room=${encodeURIComponent(room)}`;
     
     socket = new WebSocket(wsUrl);
 
@@ -139,7 +140,12 @@ async function startCall() {
         sendMessage({ type: 'ready' });
     };
 
-    socket.onclose = () => {
+    socket.onclose = (event) => {
+        if (event && (event.reason === 'Room full' || event.code === 1008)) {
+            alert('This room is full (max 2 participants). Redirecting to homepage.');
+            window.location.href = '/';
+            return;
+        }
         endCall();
     };
 
@@ -370,4 +376,7 @@ function endCall() {
 
     iceCandidateQueue = [];
     remoteDescriptionSet = false;
+
+    // Redirect to home page
+    window.location.href = '/';
 }
