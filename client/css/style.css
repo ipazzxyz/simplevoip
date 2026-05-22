@@ -302,6 +302,18 @@ body {
     border: 1px solid rgba(255, 255, 255, 0.05);
     pointer-events: none;
     z-index: 3;
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+}
+
+.crown-icon {
+    width: 14px;
+    height: 14px;
+    fill: #ffd700;
+    color: #ffd700;
+    filter: drop-shadow(0 0 3px rgba(255, 215, 0, 0.6));
+    flex-shrink: 0;
 }
 
 /* Video Placeholders */

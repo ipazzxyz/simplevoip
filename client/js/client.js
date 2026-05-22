@@ -1,6 +1,6 @@
 // UI Elements
 const localVideo = document.getElementById('localVideo');
-const joinBtn = document.getElementById('joinBtn');
+const deafenBtn = document.getElementById('deafenBtn');
 const muteAudioBtn = document.getElementById('muteAudio');
 const muteVideoBtn = document.getElementById('muteVideo');
 const statusDot = document.getElementById('statusDot');
@@ -16,6 +16,7 @@ let myPeerId = null;
 let currentHostId = null;
 let socket = null;
 let isConnected = false;
+let isDeafened = false;
 
 const rtcConfig = {
     iceServers: [
@@ -32,13 +33,7 @@ if (roomText) {
 }
 
 // Event Listeners
-joinBtn.addEventListener('click', () => {
-    if (!isConnected) {
-        startCall();
-    } else {
-        endCall();
-    }
-});
+deafenBtn.addEventListener('click', toggleDeafen);
 
 if (roomBadge) {
     roomBadge.addEventListener('click', () => {
@@ -57,6 +52,11 @@ if (roomBadge) {
 muteAudioBtn.addEventListener('click', toggleAudio);
 muteVideoBtn.addEventListener('click', toggleVideo);
 
+// Start call automatically on page load
+window.addEventListener('DOMContentLoaded', () => {
+    startCall();
+});
+
 // Update Status indicators
 function updateStatus(text, statusClass) {
     statusText.textContent = text;
@@ -72,13 +72,12 @@ function sendMessage(message) {
 }
 
 // Start user media and open socket connection
+// Start user media and open socket connection
 async function startCall() {
-    joinBtn.disabled = true;
     updateStatus('Accessing media...', 'connecting');
 
     if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
         updateStatus('Media Error', 'disconnected');
-        joinBtn.disabled = false;
         alert('WebRTC media APIs are not supported or blocked in this browser context. Please ensure you are opening the page via http://localhost:8080 (or https:// if accessing remotely).');
         return;
     }
@@ -109,7 +108,6 @@ async function startCall() {
         } catch (err) {
             console.error('All media acquisition attempts failed:', err);
             updateStatus('Media Error', 'disconnected');
-            joinBtn.disabled = false;
             alert('Could not access camera or microphone. Please verify they are plugged in and permissions are granted.');
             return;
         }
@@ -131,7 +129,9 @@ async function startCall() {
     // Enable controls only for active tracks
     muteAudioBtn.disabled = !hasAudio;
     muteVideoBtn.disabled = !hasVideo;
+    deafenBtn.disabled = false;
     muteAudioBtn.classList.remove('muted');
+    deafenBtn.classList.remove('muted');
     
     if (hasVideo) {
         muteVideoBtn.classList.add('muted');
@@ -149,10 +149,6 @@ async function startCall() {
 
     socket.onopen = () => {
         updateStatus('Waiting for peer...', 'connecting');
-        joinBtn.disabled = false;
-        joinBtn.classList.remove('connect-btn');
-        joinBtn.classList.add('disconnect-btn');
-        joinBtn.title = "Disconnect from call";
         isConnected = true;
         updateLayout();
     };
@@ -357,11 +353,13 @@ function createPeerVideoWrapper(peerId, stream) {
     
     const video = wrapper.querySelector('video');
     video.srcObject = stream;
+    video.muted = isDeafened;
     
     videoContainer.appendChild(wrapper);
     peers[peerId].wrapperElement = wrapper;
     
     updateLayout();
+    updateHostButtons();
 }
 
 // Global Kick Action
@@ -415,6 +413,7 @@ function updateHostButtons() {
     const isHost = (myPeerId && currentHostId && myPeerId === currentHostId);
     
     updateStatusText();
+    updateHostVisuals();
     
     Object.keys(peers).forEach(peerId => {
         const peerState = peers[peerId];
@@ -437,6 +436,83 @@ function updateHostButtons() {
             kickBtn.remove();
         }
     });
+}
+
+// Update labels with crown icons for the host
+function updateHostVisuals() {
+    const isHost = (myPeerId && currentHostId && myPeerId === currentHostId);
+    
+    // Update local label
+    const localLabel = document.querySelector('#localVideoWrapper .video-label');
+    if (localLabel) {
+        if (isHost) {
+            localLabel.innerHTML = `You <svg class="crown-icon" viewBox="0 0 24 24" width="14" height="14"><path d="M2 4l3 12h14l3-12-6 7-4-7-4 7-6-7zm3 14h14v2H5v-2z"/></svg>`;
+        } else {
+            localLabel.innerHTML = 'You';
+        }
+    }
+
+    // Update remote labels
+    Object.keys(peers).forEach(peerId => {
+        const peerState = peers[peerId];
+        if (!peerState.wrapperElement) return;
+        const label = peerState.wrapperElement.querySelector('.video-label');
+        if (label) {
+            const isPeerHost = (peerId === currentHostId);
+            if (isPeerHost) {
+                label.innerHTML = `User (${peerId.substring(5, 9)}) <svg class="crown-icon" viewBox="0 0 24 24" width="14" height="14"><path d="M2 4l3 12h14l3-12-6 7-4-7-4 7-6-7zm3 14h14v2H5v-2z"/></svg>`;
+            } else {
+                label.innerHTML = `User (${peerId.substring(5, 9)})`;
+            }
+        }
+    });
+}
+
+// Toggle Deafen (Mute remote sound and auto-mute local microphone and video)
+function toggleDeafen() {
+    isDeafened = !isDeafened;
+    deafenBtn.classList.toggle('muted', isDeafened);
+    
+    const deafenPath = document.getElementById('deafenPath');
+    if (deafenPath) {
+        if (isDeafened) {
+            // Deafen icon (headphones with a line/slash)
+            deafenPath.setAttribute('d', 'M12 3a9 9 0 0 0-9 9v7a3 3 0 0 0 3 3h2v-8H5v-2a7 7 0 0 1 14 0v2h-3v4.58l2 2V12a9 9 0 0 0-9-9zM19 18a3 3 0 0 1-3 3h-2v-4.58l5 5V18zM4.41 2.86L2.86 4.41l16.73 16.73 1.55-1.55L4.41 2.86z');
+        } else {
+            // Default headphones path
+            deafenPath.setAttribute('d', 'M12 3a9 9 0 0 0-9 9v7a3 3 0 0 0 3 3h2v-8H5v-2a7 7 0 0 1 14 0v2h-3v8h2a3 3 0 0 0 3-3v-7a9 9 0 0 0-9-9z');
+        }
+    }
+
+    // Mute/unmute all remote audio streams
+    Object.keys(peers).forEach(peerId => {
+        const wrapper = peers[peerId].wrapperElement;
+        if (wrapper) {
+            const video = wrapper.querySelector('video');
+            if (video) {
+                video.muted = isDeafened;
+            }
+        }
+    });
+
+    // Auto-mute microphone and camera if deafen is enabled
+    if (isDeafened) {
+        if (localStream) {
+            const audioTrack = localStream.getAudioTracks()[0];
+            if (audioTrack && audioTrack.enabled) {
+                audioTrack.enabled = false;
+                muteAudioBtn.classList.add('muted');
+            }
+            
+            const videoTrack = localStream.getVideoTracks()[0];
+            if (videoTrack && videoTrack.enabled) {
+                videoTrack.enabled = false;
+                muteVideoBtn.classList.add('muted');
+                localVideo.classList.remove('active');
+                localPlaceholder.classList.remove('hidden');
+            }
+        }
+    }
 }
 
 // Close and clean up a peer connection
@@ -588,10 +664,6 @@ function toggleVideo() {
 function endCall() {
     updateStatus('Disconnected', 'disconnected');
     
-    joinBtn.classList.remove('disconnect-btn');
-    joinBtn.classList.add('connect-btn');
-    joinBtn.disabled = false;
-    joinBtn.title = "Connect to call";
     isConnected = false;
 
     // Release local media
@@ -611,8 +683,16 @@ function endCall() {
 
     muteAudioBtn.disabled = true;
     muteVideoBtn.disabled = true;
+    deafenBtn.disabled = true;
     muteAudioBtn.classList.remove('muted');
     muteVideoBtn.classList.remove('muted');
+    deafenBtn.classList.remove('muted');
+    isDeafened = false;
+
+    const deafenPath = document.getElementById('deafenPath');
+    if (deafenPath) {
+        deafenPath.setAttribute('d', 'M12 3a9 9 0 0 0-9 9v7a3 3 0 0 0 3 3h2v-8H5v-2a7 7 0 0 1 14 0v2h-3v8h2a3 3 0 0 0 3-3v-7a9 9 0 0 0-9-9z');
+    }
 
     if (socket) {
         socket.onclose = null; // prevent recursive trigger
