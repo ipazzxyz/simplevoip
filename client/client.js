@@ -8,6 +8,9 @@ const statusDot = document.getElementById('statusDot');
 const statusText = document.getElementById('statusText');
 const localPlaceholder = document.getElementById('localPlaceholder');
 const remotePlaceholder = document.getElementById('remotePlaceholder');
+const remotePlaceholderText = document.getElementById('remotePlaceholderText');
+const remoteSpinner = document.getElementById('remoteSpinner');
+const remoteUserIcon = document.getElementById('remoteUserIcon');
 
 // WebRTC & WS state
 let localStream = null;
@@ -101,8 +104,14 @@ async function startCall() {
     const hasAudio = localStream.getAudioTracks().length > 0;
 
     localVideo.srcObject = localStream;
-    localVideo.classList.add('active');
-    localPlaceholder.classList.add('hidden');
+    
+    if (hasVideo) {
+        localVideo.classList.add('active');
+        localPlaceholder.classList.add('hidden');
+    } else {
+        localVideo.classList.remove('active');
+        localPlaceholder.classList.remove('hidden');
+    }
     
     // Enable controls only for active tracks
     muteAudioBtn.disabled = !hasAudio;
@@ -164,6 +173,32 @@ function initPeerConnection() {
             remoteVideo.classList.add('active');
             remotePlaceholder.classList.add('hidden');
             updateStatus('Connected to Peer', 'success');
+
+            // Listen to mute/unmute events on the remote video track
+            if (event.track.kind === 'video') {
+                const handleMute = () => {
+                    console.log('Remote video muted');
+                    remoteVideo.classList.remove('active');
+                    remotePlaceholderText.textContent = 'Remote camera is off';
+                    remoteSpinner.style.display = 'none';
+                    remoteUserIcon.style.display = 'flex';
+                    remotePlaceholder.classList.remove('hidden');
+                };
+
+                const handleUnmute = () => {
+                    console.log('Remote video unmuted');
+                    remoteVideo.classList.add('active');
+                    remotePlaceholder.classList.add('hidden');
+                };
+
+                event.track.onmute = handleMute;
+                event.track.onunmute = handleUnmute;
+
+                // Check initial state
+                if (event.track.muted) {
+                    handleMute();
+                }
+            }
         }
     };
 
@@ -178,10 +213,27 @@ function initPeerConnection() {
         console.log('Connection state change:', peerConnection.connectionState);
         if (peerConnection.connectionState === 'connected') {
             updateStatus('Connected to Peer', 'success');
+            
+            // Check if we have remote video receiver. If not or if muted, show user icon.
+            const videoReceiver = peerConnection.getReceivers().find(r => r.track && r.track.kind === 'video');
+            if (!videoReceiver) {
+                remotePlaceholderText.textContent = 'Remote is audio-only';
+                remoteSpinner.style.display = 'none';
+                remoteUserIcon.style.display = 'flex';
+                remotePlaceholder.classList.remove('hidden');
+            } else if (videoReceiver.track.muted) {
+                remotePlaceholderText.textContent = 'Remote camera is off';
+                remoteSpinner.style.display = 'none';
+                remoteUserIcon.style.display = 'flex';
+                remotePlaceholder.classList.remove('hidden');
+            }
         } else if (peerConnection.connectionState === 'disconnected' || peerConnection.connectionState === 'failed') {
             updateStatus('Peer disconnected', 'connecting');
             remoteVideo.srcObject = null;
             remoteVideo.classList.remove('active');
+            remotePlaceholderText.textContent = 'Waiting for remote peer...';
+            remoteSpinner.style.display = 'flex';
+            remoteUserIcon.style.display = 'none';
             remotePlaceholder.classList.remove('hidden');
         }
     };
@@ -261,6 +313,14 @@ function toggleVideo() {
         if (videoTrack) {
             videoTrack.enabled = !videoTrack.enabled;
             muteVideoBtn.classList.toggle('muted', !videoTrack.enabled);
+            
+            if (videoTrack.enabled) {
+                localVideo.classList.add('active');
+                localPlaceholder.classList.add('hidden');
+            } else {
+                localVideo.classList.remove('active');
+                localPlaceholder.classList.remove('hidden');
+            }
         }
     }
 }
@@ -287,6 +347,9 @@ function endCall() {
 
     remoteVideo.srcObject = null;
     remoteVideo.classList.remove('active');
+    remotePlaceholderText.textContent = 'Waiting for remote peer...';
+    remoteSpinner.style.display = 'flex';
+    remoteUserIcon.style.display = 'none';
     remotePlaceholder.classList.remove('hidden');
 
     muteAudioBtn.disabled = true;

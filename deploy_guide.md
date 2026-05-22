@@ -18,7 +18,7 @@ sudo apt install -y docker.io docker-compose nginx certbot python3-certbot-nginx
 
 ## 2. Prepare DNS
 
-Go to your Domain Registrar or DNS host and point a subdomain (e.g., `call.yourdomain.com`) to your VDS's public IP address with an **A-Record**.
+Go to your Domain Registrar or DNS host and point a subdomain (e.g., `voip.ipazzxyz.tech`) to your VDS's public IP address with an **A-Record**.
 
 ---
 
@@ -38,25 +38,19 @@ Go to your Domain Registrar or DNS host and point a subdomain (e.g., `call.yourd
 
 ---
 
-## 4. Configure Nginx Reverse Proxy
+## 4. Configure Nginx Reverse Proxy (Initial Port 80 Setup)
 
-Create an Nginx configuration file to listen on port `80` / `443` and route traffic to the containerized server.
+To obtain an SSL certificate via Certbot, we first configure Nginx to listen on port `80` and route traffic to the containerized server.
 
 1. Open a new configuration file:
    ```bash
    sudo nano /etc/nginx/sites-available/webrtc
    ```
-2. Paste the following configuration, replacing `call.yourdomain.com` with your subdomain:
+2. Paste the following configuration, replacing `voip.ipazzxyz.tech` with your subdomain (if different):
    ```nginx
    server {
        listen 80;
-       server_name call.yourdomain.com;
-       return 301 https://$host$request_uri;
-   }
-
-   server {
-       listen 443 ssl http2;
-       server_name call.yourdomain.com;
+       server_name voip.ipazzxyz.tech;
 
        location / {
            proxy_pass http://127.0.0.1:8080;
@@ -87,18 +81,19 @@ Create an Nginx configuration file to listen on port `80` / `443` and route traf
 
 ---
 
-## 5. Enable HTTPS and WSS (SSL Certificate)
+## 5. Enable HTTPS and WSS (SSL Certificate via Certbot)
 
-Use Certbot to request a free certificate from Let's Encrypt and automatically update Nginx settings:
+Use Certbot to request a free certificate from Let's Encrypt. The Certbot Nginx plugin will automatically obtain the certificates, write the `ssl_certificate` directives, add the `443` HTTPS server block, and configure HTTP-to-HTTPS redirect:
 
 ```bash
-sudo certbot --nginx -d call.yourdomain.com
+sudo certbot --nginx -d voip.ipazzxyz.tech
 ```
 
-Confirm that the certificate is acquired and you are redirecting all HTTP traffic to HTTPS. Certbot automatically adds a cron job to renew the certificates every 3 months.
+Select the option to redirect all traffic to HTTPS if prompted. Certbot automatically adds a cron job to renew the certificates every 3 months.
+
 
 ---
 
 ## 6. Verification
 
-Navigate to `https://call.yourdomain.com` on both your desktop and smartphone. The browser will request microphone and camera access over secure HTTPS, enabling WebRTC calling.
+Navigate to `https://voip.ipazzxyz.tech` on both your desktop and smartphone. The browser will request microphone and camera access over secure HTTPS, enabling WebRTC calling.

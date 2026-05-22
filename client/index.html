@@ -33,15 +33,19 @@
                 <div class="video-wrapper remote-wrapper" id="remoteVideoWrapper">
                     <video id="remoteVideo" autoplay playsinline></video>
                     <div class="video-placeholder" id="remotePlaceholder">
-                        <div class="placeholder-icon">
+                        <!-- Spinning loader icon (Waiting state) -->
+                        <div class="spinner-icon" id="remoteSpinner">
+                            <svg class="spinner-svg" viewBox="0 0 24 24" width="48" height="48">
+                                <circle class="spinner-path" cx="12" cy="12" r="10" fill="none" stroke="currentColor" stroke-width="3"></circle>
+                            </svg>
+                        </div>
+                        <!-- User icon (Connected without camera state) -->
+                        <div class="placeholder-icon" id="remoteUserIcon" style="display: none;">
                             <svg viewBox="0 0 24 24" width="48" height="48">
                                 <path fill="currentColor" d="M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm0 2c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z"/>
                             </svg>
                         </div>
-                        <p class="placeholder-text">Waiting for remote peer...</p>
-                        <div class="loading-wave">
-                            <span></span><span></span><span></span>
-                        </div>
+                        <p class="placeholder-text" id="remotePlaceholderText">Waiting for remote peer...</p>
                     </div>
                     <span class="video-label">Remote User</span>
                 </div>

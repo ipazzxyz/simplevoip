@@ -161,11 +161,16 @@ body {
 .video-wrapper video {
     width: 100%;
     height: 100%;
-    object-fit: cover;
+    object-fit: contain;
     border-radius: 19px;
     opacity: 0;
     transition: opacity 0.5s ease;
 }
+
+.local-wrapper video {
+    object-fit: cover;
+}
+
 
 .video-wrapper video.active {
     opacity: 1;
@@ -320,7 +325,7 @@ body {
     border: 1px solid rgba(255, 255, 255, 0.1);
 }
 
-.secondary-btn:hover:not(:disabled) {
+.secondary-btn:hover:not(:disabled):not(.muted) {
     background: rgba(255, 255, 255, 0.12);
     border: 1px solid rgba(255, 255, 255, 0.2);
     transform: translateY(-2px);
@@ -336,16 +341,29 @@ body {
     box-shadow: 0 0 12px rgba(255, 51, 102, 0.4);
 }
 
+.secondary-btn.muted:hover:not(:disabled) {
+    background: #ff4d7d;
+    border-color: #ff4d7d;
+    box-shadow: 0 0 18px rgba(255, 51, 102, 0.6);
+    transform: translateY(-2px);
+}
+
+
 .secondary-btn:disabled {
     opacity: 0.3;
     cursor: not-allowed;
 }
 
-/* Animations */
 @keyframes rotateLogo {
     from { transform: rotate(0deg); }
     to { transform: rotate(360deg); }
 }
+
+@keyframes spin {
+    from { transform: rotate(0deg); }
+    to { transform: rotate(360deg); }
+}
+
 
 @keyframes pulseGlow {
     0% { transform: scale(1); opacity: 1; }
@@ -365,6 +383,28 @@ body {
     gap: 4px;
     height: 20px;
 }
+
+/* Spinner Icon */
+.spinner-icon {
+    width: 80px;
+    height: 80px;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    color: var(--accent-blue);
+    filter: drop-shadow(0 0 8px rgba(0, 210, 255, 0.4));
+}
+
+.spinner-svg {
+    animation: spin 1s linear infinite;
+}
+
+.spinner-path {
+    stroke-linecap: round;
+    stroke-dasharray: 60;
+    stroke-dashoffset: 15;
+}
+
 
 .loading-wave span {
     width: 4px;
@@ -387,48 +427,141 @@ body {
     50% { transform: scaleY(2.5); }
 }
 
-/* Responsive UI Adjustments */
+/* Responsive UI Adjustments - Immersive Mobile Design */
 @media(max-width: 768px) {
     .app-container {
-        padding: 10px;
+        padding: 0;
+        overflow: hidden;
     }
     
+    /* Immersive floating header */
     .app-header {
-        height: 60px;
-        padding: 0 16px;
-        margin-bottom: 12px;
+        position: absolute;
+        top: calc(12px + env(safe-area-inset-top, 0px));
+        left: 12px;
+        right: 12px;
+        height: 56px;
+        margin-bottom: 0;
+        background: rgba(10, 11, 16, 0.45);
+        backdrop-filter: blur(20px);
+        -webkit-backdrop-filter: blur(20px);
+        border: 1px solid rgba(255, 255, 255, 0.08);
+        border-radius: 28px;
+        padding: 0 18px;
+        z-index: 10;
+        box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
+    }
+    
+    .logo-icon {
+        width: 20px;
+        height: 20px;
     }
     
     .logo-text {
         font-size: 1.1rem;
     }
     
+    /* Full-screen workspace */
+    .call-workspace {
+        height: 100vh;
+        width: 100vw;
+        margin-bottom: 0;
+        border-radius: 0;
+    }
+    
+    .video-container {
+        gap: 0;
+    }
+    
+    /* Edge-to-edge remote video */
+    .remote-wrapper {
+        border-radius: 0;
+        border: none;
+        box-shadow: none;
+    }
+    
+    /* Vertical PiP box tailored for mobile portrait cameras */
     .local-wrapper {
-        width: 140px;
-        height: 90px;
-        bottom: 12px;
+        width: 100px;
+        height: 150px;
+        bottom: calc(105px + env(safe-area-inset-bottom, 0px));
         right: 12px;
-        border-radius: 12px;
+        border-radius: 16px;
+        border: 1.5px solid rgba(255, 255, 255, 0.2);
+        box-shadow: 0 8px 24px rgba(0, 0, 0, 0.45);
+        background: rgba(10, 11, 16, 0.85);
+        z-index: 5;
     }
     
     .local-wrapper video {
-        border-radius: 11px;
+        border-radius: 14px;
+    }
+    
+    .video-placeholder {
+        background: radial-gradient(circle at center, #13141f, #07080e);
+    }
+    
+    .placeholder-text {
+        font-size: 0.95rem;
+        text-align: center;
+        padding: 0 20px;
+        color: var(--text-secondary);
     }
     
     .video-label {
-        bottom: 8px;
-        left: 8px;
-        font-size: 0.75rem;
-        padding: 4px 8px;
+        bottom: 6px;
+        left: 6px;
+        font-size: 0.7rem;
+        padding: 3px 6px;
+        border-radius: 6px;
+    }
+    
+    /* Immersive floating controls */
+    .call-controls {
+        position: absolute;
+        bottom: calc(20px + env(safe-area-inset-bottom, 0px));
+        left: 0;
+        width: 100%;
+        height: auto;
+        padding: 0;
+        background: transparent;
+        z-index: 10;
+        display: flex;
+        justify-content: center;
     }
     
     .controls-panel {
-        padding: 10px 20px;
-        gap: 15px;
+        background: rgba(10, 11, 16, 0.5);
+        backdrop-filter: blur(20px);
+        -webkit-backdrop-filter: blur(20px);
+        border: 1px solid rgba(255, 255, 255, 0.08);
+        border-radius: 35px;
+        padding: 8px 20px;
+        gap: 16px;
+        box-shadow: 0 10px 40px rgba(0, 0, 0, 0.4);
     }
     
     .control-btn {
-        width: 46px;
-        height: 46px;
+        width: 48px;
+        height: 48px;
     }
 }
+
+/* Landscape adjustments for mobile devices */
+@media(max-width: 768px) and (orientation: landscape) {
+    .local-wrapper {
+        width: 140px;
+        height: 90px;
+        bottom: calc(80px + env(safe-area-inset-bottom, 0px));
+    }
+    
+    .app-header {
+        height: 46px;
+        top: calc(8px + env(safe-area-inset-top, 0px));
+    }
+    
+    .call-controls {
+        bottom: calc(10px + env(safe-area-inset-bottom, 0px));
+    }
+}
+
