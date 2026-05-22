@@ -29,6 +29,7 @@ body {
         radial-gradient(circle at 90% 80%, rgba(157, 78, 221, 0.06) 0%, transparent 40%);
     color: var(--text-primary);
     height: 100vh;
+    height: 100dvh;
     overflow: hidden;
     display: flex;
     justify-content: center;
@@ -39,6 +40,7 @@ body {
 .app-container {
     width: 100vw;
     height: 100vh;
+    height: 100dvh;
     display: flex;
     flex-direction: column;
     position: relative;
@@ -564,8 +566,8 @@ body {
     
     /* Full-screen workspace */
     .call-workspace {
-        height: 100vh;
-        width: 100vw;
+        height: 100%;
+        width: 100%;
         margin-bottom: 0;
         border-radius: 0;
     }

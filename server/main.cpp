@@ -29,7 +29,7 @@ int main() {
 
     // HTTP Routes
     CROW_ROUTE(app, "/")([]() {
-        auto response = crow::response(read_file("client/home.html"));
+        auto response = crow::response(read_file("client/index.html"));
         response.set_header("Content-Type", "text/html; charset=utf-8");
         return response;
     });
@@ -120,7 +120,7 @@ int main() {
             return crow::response(404);
         }
         // Serve room calling page
-        auto response = crow::response(read_file("client/index.html"));
+        auto response = crow::response(read_file("client/room.html"));
         response.set_header("Content-Type", "text/html; charset=utf-8");
         return response;
     });
