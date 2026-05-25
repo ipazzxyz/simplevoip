@@ -22,6 +22,7 @@ let currentHostId = null;
 let socket = null;
 let isConnected = false;
 let isDeafened = false;
+let heartbeatInterval = null;
 
 // Audio context & video device state
 let audioContext = null;
@@ -32,7 +33,15 @@ const rtcConfig = {
     iceServers: [
         { urls: 'stun:stun.l.google.com:19302' },
         { urls: 'stun:stun1.l.google.com:19302' },
-        { urls: 'stun:stun2.l.google.com:19302' }
+        { urls: 'stun:stun2.l.google.com:19302' },
+        {
+            urls: [
+                `turn:${window.location.hostname}:3478?transport=udp`,
+                `turn:${window.location.hostname}:3478?transport=tcp`
+            ],
+            username: 'voipuser',
+            credential: 'voippassword'
+        }
     ]
 };
 
@@ -207,6 +216,11 @@ async function startCall() {
         updateStatus('Waiting for peer...', 'connecting');
         isConnected = true;
         updateLayout();
+
+        // Start heartbeat ping
+        heartbeatInterval = setInterval(() => {
+            sendMessage({ type: 'ping' });
+        }, 10000);
     };
 
     socket.onclose = (event) => {
@@ -787,6 +801,11 @@ function endCall() {
     muteVideoBtn.classList.remove('muted');
     deafenBtn.classList.remove('muted');
     isDeafened = false;
+
+    if (heartbeatInterval) {
+        clearInterval(heartbeatInterval);
+        heartbeatInterval = null;
+    }
 
     if (socket) {
         socket.onclose = null; // prevent recursive trigger

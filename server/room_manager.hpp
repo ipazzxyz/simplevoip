@@ -7,6 +7,7 @@
 #include <iostream>
 #include <vector>
 #include <sstream>
+#include <chrono>
 
 struct RoomState {
     std::string host_peer_id;
@@ -61,6 +62,7 @@ public:
         room_state.peers[peer_id] = conn;
         conn_to_room_[conn] = room_id;
         conn_to_peer_id_[conn] = peer_id;
+        conn_last_seen_[conn] = std::chrono::steady_clock::now();
 
         // First peer is the host
         if (room_state.host_peer_id.empty()) {
@@ -106,6 +108,7 @@ public:
 
             conn_to_room_.erase(it);
             conn_to_peer_id_.erase(conn);
+            conn_last_seen_.erase(conn);
             std::cout << "[WS] Peer " << result.peer_id << " left room: " << result.room_id << std::endl;
         }
         return result;
@@ -114,6 +117,8 @@ public:
     // Process and route signaling / control messages.
     void handle_message(crow::websocket::connection* sender, const std::string& data) {
         std::lock_guard<std::mutex> lock(mutex_);
+        
+        conn_last_seen_[sender] = std::chrono::steady_clock::now();
         
         auto it = conn_to_peer_id_.find(sender);
         if (it == conn_to_peer_id_.end()) return;
@@ -128,6 +133,11 @@ public:
         auto msg = crow::json::load(data);
         if (!msg) {
             std::cerr << "[WS] Failed to parse message JSON from " << sender_id << std::endl;
+            return;
+        }
+
+        // Intercept and ignore heartbeat pings (silently update timestamp and return)
+        if (msg.has("type") && msg["type"].s() == "ping") {
             return;
         }
 
@@ -171,10 +181,32 @@ public:
         }
     }
 
+    // Check for idle connections and close them
+    void cleanup_inactive_connections() {
+        std::vector<crow::websocket::connection*> to_close;
+        {
+            std::lock_guard<std::mutex> lock(mutex_);
+            auto now = std::chrono::steady_clock::now();
+            for (const auto& pair : conn_last_seen_) {
+                auto duration = std::chrono::duration_cast<std::chrono::seconds>(now - pair.second).count();
+                if (duration > 30) {
+                    std::cout << "[WS] Connection idle for " << duration << " seconds. Scheduling cleanup." << std::endl;
+                    to_close.push_back(pair.first);
+                }
+            }
+        }
+
+        // Close outside the lock to prevent deadlock
+        for (auto* conn : to_close) {
+            conn->close("Heartbeat timeout");
+        }
+    }
+
 private:
     std::unordered_map<std::string, RoomState> rooms_;
     std::unordered_map<crow::websocket::connection*, std::string> conn_to_room_;
     std::unordered_map<crow::websocket::connection*, std::string> conn_to_peer_id_;
+    std::unordered_map<crow::websocket::connection*, std::chrono::steady_clock::time_point> conn_last_seen_;
     std::mutex mutex_;
 };
 

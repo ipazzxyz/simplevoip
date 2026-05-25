@@ -5,6 +5,8 @@
 #include <fstream>
 #include <sstream>
 #include <iostream>
+#include <thread>
+#include <chrono>
 
 // Helper function to read file contents
 std::string read_file(const std::string& path) {
@@ -21,6 +23,15 @@ std::string read_file(const std::string& path) {
 int main() {
     crow::SimpleApp app;
     RoomManager room_manager;
+
+    // Start background thread to clean up inactive connections
+    std::thread cleanup_thread([&room_manager]() {
+        while (true) {
+            std::this_thread::sleep_for(std::chrono::seconds(10));
+            room_manager.cleanup_inactive_connections();
+        }
+    });
+    cleanup_thread.detach();
 
     // HTTP Routes
     CROW_ROUTE(app, "/")([]() {
